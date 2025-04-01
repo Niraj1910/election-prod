@@ -5,7 +5,7 @@ const Joi = require("joi");
 const Candidate = require("../models/candidates");
 const RedisManager = require("../RedisManager"); // Make sure RedisManager is imported
 const { cachedKeys } = require("../utils");
-const isAdmin = require("../middleware/admin");
+const { isAdmin } = require("../middleware/admin");
 
 const router = express.Router();
 const redis = RedisManager.getInstance();
@@ -17,10 +17,6 @@ const constituencySchema = Joi.object({
   state: Joi.string().required().messages({
     "string.empty": "State is required",
   }),
-  totalVotes: Joi.number().required().messages({
-    "number.base": "Total votes must be a number",
-  }),
-  won: Joi.string().optional(),
   candidates: Joi.array().optional(),
 });
 

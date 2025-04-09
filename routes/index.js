@@ -22,7 +22,7 @@ const redis = RedisManager.getInstance();
 async function getCandidateElectionDetails(
   userType,
   electionId,
-  allowedConstituencies
+  allowedConstituencies,
 ) {
   const pipeline = [
     { $match: { election: new mongoose.Types.ObjectId(electionId) } },
@@ -42,9 +42,9 @@ async function getCandidateElectionDetails(
       ? [
           {
             $match: {
-              "candidateInfo.constituency.0": {
+              "candidateInfo.constituency": {
                 $in: allowedConstituencies.map((id) =>
-                  typeof id === "string" ? new mongoose.Types.ObjectId(id) : id
+                  typeof id === "string" ? new mongoose.Types.ObjectId(id) : id,
                 ),
               },
             },
@@ -56,7 +56,7 @@ async function getCandidateElectionDetails(
     {
       $lookup: {
         from: "constituencies",
-        localField: "candidateInfo.constituency.0",
+        localField: "candidateInfo.constituency",
         foreignField: "_id",
         as: "constituencyInfo",
       },
@@ -114,7 +114,7 @@ async function getCandidateElectionDetails(
         let: {
           electionId: new mongoose.Types.ObjectId(electionId),
           constituencyId: {
-            $toObjectId: { $arrayElemAt: ["$candidateInfo.constituency", 0] },
+            $toObjectId: "$candidateInfo.constituency",
           },
         },
         pipeline: [
@@ -165,7 +165,8 @@ async function getCandidateElectionDetails(
   ];
 
   // Execute the aggregation
-  const candidateElections = await CandidateElectioModel.aggregate(pipeline);
+  const candidateElections =
+    await CandidateElectioModel.aggregate(pipeline).limit(20);
 
   return candidateElections;
 }
@@ -195,13 +196,13 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 router.get("/accounts-list", isLoggedIn, isAdmin, async (req, res) => {
   const users = await UserModel.find({}).populate(
     "allowedConstituencies",
-    "name"
+    "name",
   );
   const constituencies = await Constituency.find({}, "_id name");
 
@@ -305,7 +306,7 @@ router.get(
       alliancesData,
       userRole: req.userRole,
     });
-  }
+  },
 );
 
 router.get("/login", function (req, res, next) {
@@ -412,15 +413,15 @@ router.get(
         candidateElectionDetails = await getCandidateElectionDetails(
           req.userRole,
           electionId,
-          req.allowedConst
+          req.allowedConst,
         );
 
         candidateElectionDetails = candidateElectionDetails.filter(
-          (doc) => doc.candidate !== null
+          (doc) => doc.candidate !== null,
         );
 
         const allowedParties = candidateElectionDetails.map(
-          (candidate) => candidate.candidate.party._id
+          (candidate) => candidate.candidate.party._id,
         );
 
         partyElectionDetails = await PartyElectionModel.find({
@@ -435,21 +436,21 @@ router.get(
         candidateElectionDetails = await getCandidateElectionDetails(
           req.userRole,
           electionId,
-          req.allowedConst
+          req.allowedConst,
         );
       }
 
       const partyIdsInElection = partyElectionDetails.map((partyElection) =>
-        partyElection.party._id.toString()
+        partyElection.party._id.toString(),
       );
 
       const candidatesInElection = candidateElectionDetails.map(
-        (candidateElection) => candidateElection.candidate._id.toString()
+        (candidateElection) => candidateElection.candidate._id.toString(),
       );
 
       const allPartiesList = await Party.find(
         { _id: { $nin: partyIdsInElection } },
-        "party"
+        "party",
       );
 
       const candidatesQuery = {
@@ -474,7 +475,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 router.get("/temp-election-list", isLoggedIn, isUser, async (req, res) => {
@@ -515,7 +516,7 @@ router.get("/temp-election-list", isLoggedIn, isUser, async (req, res) => {
       {
         $lookup: {
           from: "constituencies",
-          localField: "candidates.constituency.0", // Access the first element of each candidate's constituency array
+          localField: "candidates.constituency", // Changed from candidates.constituency.0
           foreignField: "_id",
           as: "constituencies",
         },
@@ -642,30 +643,24 @@ router.get("/temp-election-list", isLoggedIn, isUser, async (req, res) => {
                         0,
                       ],
                     },
-                    constituency: [
-                      {
-                        $arrayElemAt: [
-                          {
-                            $filter: {
-                              input: "$constituencies",
-                              as: "constituency",
-                              cond: {
-                                $eq: [
-                                  "$$constituency._id",
-                                  {
-                                    $arrayElemAt: [
-                                      "$$candidate.constituency",
-                                      0,
-                                    ],
-                                  },
-                                ],
-                              },
+                    constituency: {
+                      // Changed from array to direct object
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: "$constituencies",
+                            as: "constituency",
+                            cond: {
+                              $eq: [
+                                "$$constituency._id",
+                                "$$candidate.constituency",
+                              ], // Direct comparison now
                             },
                           },
-                          0,
-                        ],
-                      },
-                    ],
+                        },
+                        0,
+                      ],
+                    },
                   },
                 ],
               },
@@ -683,6 +678,7 @@ router.get("/temp-election-list", isLoggedIn, isUser, async (req, res) => {
         },
       },
     ]);
+    // console.log(elections[0].electionInfo.candidates[0]);
 
     // Render the template with the elections data
     res.render("temp-election-list.ejs", { elections, userRole: req.userRole });
@@ -726,7 +722,7 @@ router.get(
     } catch (error) {
       next(error);
     }
-  }
+  },
 );
 
 // create constituency route
@@ -755,7 +751,7 @@ router.get(
       console.log(error);
       res.status(500).send("Error fetching constituencies");
     }
-  }
+  },
 );
 
 // create constituency page create-constituency
@@ -771,7 +767,7 @@ router.get(
       error: errorMessages,
       userRole: req.userRole,
     });
-  }
+  },
 );
 
 router.get(
@@ -789,7 +785,7 @@ router.get(
             path: "party",
             model: "Party",
           },
-        }
+        },
       );
       if (!constituency) {
         return res.status(404).send("Constituency not found");
@@ -805,7 +801,7 @@ router.get(
     } catch (error) {
       console.log(error);
     }
-  }
+  },
 );
 
 router.get("/candidates", isLoggedIn, isAdmin, async function (req, res, next) {
@@ -893,7 +889,7 @@ router.get(
       console.log(error);
       res.status(500).send("Error fetching data for creating candidate");
     }
-  }
+  },
 );
 
 router.get(
@@ -903,9 +899,8 @@ router.get(
   async function (req, res, next) {
     try {
       const candidateId = req.params.id;
-      const candidate = await Candidate.findById(candidateId).populate(
-        "party constituency"
-      );
+      const candidate =
+        await Candidate.findById(candidateId).populate("party constituency");
       if (!candidate) {
         return res.status(404).send("Candidate not found");
       }
@@ -921,7 +916,7 @@ router.get(
       console.log(error);
       res.status(500).send("Error fetching data for editing candidate");
     }
-  }
+  },
 );
 
 // create for assembly-election
@@ -942,7 +937,7 @@ router.get(
         .status(500)
         .send("Error fetching data for creating assembly election");
     }
-  }
+  },
 );
 
 // create for edit assembly-election
@@ -969,7 +964,7 @@ router.get(
       console.log(error);
       res.status(500).send("Error fetching data for editing assembly election");
     }
-  }
+  },
 );
 
 // get route for show the assembly-election
@@ -979,9 +974,8 @@ router.get(
   isAdmin,
   async function (req, res, next) {
     try {
-      const assemblyElections = await AssemblyElection.find().populate(
-        "constituencies"
-      ); // Fetch all elections
+      const assemblyElections =
+        await AssemblyElection.find().populate("constituencies"); // Fetch all elections
       res.render("assembly-election.ejs", {
         assemblyElections,
         userRole: req.userRole,
@@ -990,7 +984,7 @@ router.get(
       console.log(error);
       res.status(500).send("Error fetching assembly election");
     }
-  }
+  },
 );
 
 router.get(
@@ -1039,7 +1033,7 @@ router.get(
       console.log(error);
       res.status(500).send("Error fetching candidates.");
     }
-  }
+  },
 );
 
 module.exports = router;

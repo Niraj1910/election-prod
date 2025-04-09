@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 
 const constituencySchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true },
-  state: { type: String, required: true },
-  candidates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
+	name: { type: String, required: true, unique: true },
+	state: { type: String, required: true },
+	constituencnyId: { type: Number, required: true },
+	candidates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
 });
 
 const Constituency = mongoose.model("Constituency", constituencySchema);
